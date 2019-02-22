@@ -21,7 +21,7 @@ def publish_rmq_message(config, d_stats, d_p_msgs):
             init_time = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S%f')
             channel = connection_publisher.channel()
             channel_time = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S%f')
-            channel.queue_declare(routing_key, arguments={'x-expires': 10000, 'x-max-length': 1000,
+            channel.queue_declare(config["routing_key"], arguments={'x-expires': 10000, 'x-max-length': 1000,
                                                           'x-message-ttl': config["expire_timeout_ms"]})
             declare_time = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S%f')
             msg = {"init_time": init_time}
@@ -59,7 +59,7 @@ def consume_rmq_message(config, d_stats, d_c_msgs):
                                                                                     credentials=config["multipassport"],
                                                                                     ssl=config["rmq_ssl"]))
             channel = connection_consumer.channel()
-            channel.queue_declare(routing_key, arguments={'x-expires': 10000, 'x-max-length': 1000,
+            channel.queue_declare(config["routing_key"], arguments={'x-expires': 10000, 'x-max-length': 1000,
                                                           'x-message-ttl': config["expire_timeout_ms"]})
             channel.queue_bind(exchange=config["exchange_consumer"],
                                queue=config["routing_key"],
