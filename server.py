@@ -1,0 +1,161 @@
+from prometheus_client import start_http_server, Histogram, Counter
+import pika
+import logging
+import time
+import datetime
+import json
+import multiprocessing as mp
+import os
+import sys
+
+
+def publish_rmq_message(rmq_server, multipassport, routing_key, exchange, d_stats, d_p_msgs):
+    while True:
+        try:
+            connection_publisher = pika.BlockingConnection(pika.ConnectionParameters(host=rmq_server, port=5671,
+                                                                                     virtual_host='/',
+                                                                                     credentials=multipassport,
+                                                                                     ssl=True))
+
+            init_time = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S%f')
+            channel = connection_publisher.channel()
+            channel_time = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S%f')
+            channel.queue_declare(routing_key, arguments={'x-expires': 10000, 'x-max-length': 1000,
+                                                          'x-message-ttl': expire_timeout_ms})
+            declare_time = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S%f')
+            msg = {"init_time": init_time}
+            msg_json = json.dumps(msg)
+            channel.basic_publish(exchange=exchange,
+                                    routing_key=routing_key,
+                                    body=msg_json)
+            send_time = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S%f')
+            connection_publisher.close()
+            close_time = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S%f')
+            d_p_msgs[init_time] = {"channel_time": channel_time, "declare_time": declare_time, "send_time": send_time,
+                                   "close_time": close_time}
+
+
+        except Exception as e:
+            log.error("Publisher failed: %s" % format(e))
+            d_stats["rmq_monitoring_publish_fails"] += 1
+
+        time.sleep(publisher_interval)
+
+
+def consumer_callback(ch, method, properties, body, d_c_msgs):
+    ch.basic_ack(delivery_tag=method.delivery_tag)
+    msg = json.loads(body.decode('utf-8'))
+    delivery_time = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S%f')
+    d_c_msgs[msg["init_time"]] = {'delivery_time': delivery_time}
+
+
+def consume_rmq_message(rmq_server, multipassport, routing_key, exchange, d_stats, d_c_msgs):
+    while True:
+        try:
+            connection_consumer = pika.BlockingConnection(pika.ConnectionParameters(host=rmq_server, port=5671,
+                                                                                    virtual_host='/',
+                                                                                    credentials=multipassport,
+                                                                                    ssl=True))
+            channel = connection_consumer.channel()
+            channel.queue_declare(routing_key, arguments={'x-expires': 10000, 'x-max-length': 1000,
+                                                          'x-message-ttl': expire_timeout_ms})
+            channel.queue_bind(exchange=exchange,
+                               queue=routing_key,
+                               routing_key=routing_key)
+            channel.basic_consume(lambda ch, method, properties, body: consumer_callback(ch, method, properties, body, d_c_msgs),
+                                  queue=routing_key,
+                                  no_ack=False)
+            channel.start_consuming()
+            channel.close()
+        except Exception as e:
+            log.error("Consumer failed: %s" % format(e))
+            d_stats["rmq_monitoring_consume_fails"] += 1
+
+        time.sleep(1)
+
+
+def get_delta_ms(delta):
+    return (delta.days * 86400000) + (delta.seconds * 1000) + (delta.microseconds / 1000)
+
+
+log = logging.getLogger(__name__)
+out_hdlr = logging.StreamHandler(sys.stdout)
+out_hdlr.setFormatter(logging.Formatter('%(asctime)s %(message)s'))
+out_hdlr.setLevel(logging.INFO)
+log.addHandler(out_hdlr)
+log.setLevel(logging.INFO)
+
+rmq_server = os.getenv('RMQ_SERVER', '')
+rmq_user = os.getenv('RMQ_USER', '')
+rmq_password = os.getenv('RMQ_PASSWORD', '')
+rmq_vhost = os.getenv('RMQ_VHOST', '')
+exchange_publisher = os.getenv('RMQ_EXCHANGE_PUBLISHER', '')
+exchange_consumer = os.getenv('RMQ_EXCHANGE_CONSUMER', '')
+routing_key = os.getenv('RMQ_ROUTING_KEY', '')
+expire_timeout_ms = int(os.getenv('RMQ_EXPIRE_TIMEOUT', 5000))
+publisher_interval = float(os.getenv('RMQ_PUBLISHER_INTERVAL', 0.5))
+multipassport = pika.PlainCredentials(rmq_user, rmq_password)
+
+manager = mp.Manager()
+
+d_p_msgs = manager.dict()
+d_c_msgs = manager.dict()
+d_stats = manager.dict({"rmq_monitoring_publish_fails": 0, "rmq_monitoring_consume_fails": 0})
+
+rmq_monitoring_expired_msgs = Counter('rmq_monitoring_expired_msgs', 'Expired messages')
+rmq_monitoring_publish_fails = Counter('rmq_monitoring_publish_fails', 'Publisher fails')
+rmq_monitoring_consume_fails = Counter('rmq_monitoring_consume_fails', 'Consumer fails')
+
+p_consumer = mp.Process(target=consume_rmq_message, args=(rmq_server, multipassport, routing_key, exchange_consumer,
+                                                          d_stats, d_c_msgs))
+p_publisher = mp.Process(target=publish_rmq_message, args=(rmq_server, multipassport, routing_key, exchange_publisher,
+                                                           d_stats, d_p_msgs))
+p_consumer.daemon = True
+p_publisher.daemon = True
+p_consumer.start()
+p_publisher.start()
+
+rmq_event_time_ms = Histogram('rmq_event_time_ms', '', ['action'], buckets=[le**2 for le in range(3, 15)])
+
+start_http_server(9100)
+
+while True:
+    tmp = d_stats["rmq_monitoring_publish_fails"]
+    rmq_monitoring_publish_fails.inc(tmp)
+    d_stats["rmq_monitoring_publish_fails"] = d_stats["rmq_monitoring_publish_fails"] - tmp
+
+    tmp = d_stats["rmq_monitoring_consume_fails"]
+    rmq_monitoring_consume_fails.inc(tmp)
+    d_stats["rmq_monitoring_consume_fails"] = d_stats["rmq_monitoring_consume_fails"] - tmp
+
+    for k, v in d_c_msgs.items():
+        if k not in d_p_msgs:
+            continue
+        init_time = datetime.datetime.strptime(k, '%Y%m%d%H%M%S%f')
+        delivery_time = datetime.datetime.strptime(d_c_msgs[k]['delivery_time'], '%Y%m%d%H%M%S%f')
+        send_time = datetime.datetime.strptime(d_p_msgs[k]['send_time'], '%Y%m%d%H%M%S%f')
+        channel_time = datetime.datetime.strptime(d_p_msgs[k]['channel_time'], '%Y%m%d%H%M%S%f')
+        declare_time = datetime.datetime.strptime(d_p_msgs[k]['declare_time'], '%Y%m%d%H%M%S%f')
+        close_time = datetime.datetime.strptime(d_p_msgs[k]['close_time'], '%Y%m%d%H%M%S%f')
+
+        rmq_event_time_ms.labels(action="channel_create").observe(get_delta_ms(channel_time - init_time))
+        rmq_event_time_ms.labels(action="queue_declare").observe(get_delta_ms(declare_time - channel_time))
+        rmq_event_time_ms.labels(action="msg_publish").observe(get_delta_ms(send_time - declare_time))
+        rmq_event_time_ms.labels(action="channel_close").observe(get_delta_ms(close_time - send_time))
+        rmq_event_time_ms.labels(action="msg_travel").observe(get_delta_ms(delivery_time - send_time))
+
+        d_p_msgs.pop(k)
+        d_c_msgs.pop(k)
+
+    current_time = datetime.datetime.utcnow()
+    for k, v in d_p_msgs.items():
+        init_time = datetime.datetime.strptime(k, '%Y%m%d%H%M%S%f')
+        if get_delta_ms(current_time - init_time) > expire_timeout_ms and k not in d_c_msgs:
+            log.debug('message expired')
+            rmq_monitoring_expired_msgs.inc(1)
+            d_p_msgs.pop(k)
+
+    time.sleep(0.1)
+
+p_consumer.join()
+p_publisher.join()
