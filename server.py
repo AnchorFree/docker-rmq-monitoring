@@ -122,7 +122,7 @@ p_publisher.daemon = True
 p_consumer.start()
 p_publisher.start()
 
-rmq_event_time_ms = Histogram('rmq_event_time_ms', '', ['action'], buckets=[le**2 for le in range(3, 15)])
+rmq_monitoring_event_time_ms = Histogram('rmq_monitoring_event_time_ms', '', ['action'], buckets=[le**2 for le in range(3, 15)])
 
 start_http_server(config["exporter_port"])
 
@@ -145,11 +145,11 @@ while True:
         declare_time = datetime.datetime.strptime(d_p_msgs[k]['declare_time'], '%Y%m%d%H%M%S%f')
         close_time = datetime.datetime.strptime(d_p_msgs[k]['close_time'], '%Y%m%d%H%M%S%f')
 
-        rmq_event_time_ms.labels(action="channel_create").observe(get_delta_ms(channel_time - init_time))
-        rmq_event_time_ms.labels(action="queue_declare").observe(get_delta_ms(declare_time - channel_time))
-        rmq_event_time_ms.labels(action="msg_publish").observe(get_delta_ms(send_time - declare_time))
-        rmq_event_time_ms.labels(action="channel_close").observe(get_delta_ms(close_time - send_time))
-        rmq_event_time_ms.labels(action="msg_travel").observe(get_delta_ms(delivery_time - send_time))
+        rmq_monitoring_event_time_ms.labels(action="channel_create").observe(get_delta_ms(channel_time - init_time))
+        rmq_monitoring_event_time_ms.labels(action="queue_declare").observe(get_delta_ms(declare_time - channel_time))
+        rmq_monitoring_event_time_ms.labels(action="msg_publish").observe(get_delta_ms(send_time - declare_time))
+        rmq_monitoring_event_time_ms.labels(action="channel_close").observe(get_delta_ms(close_time - send_time))
+        rmq_monitoring_event_time_ms.labels(action="msg_travel").observe(get_delta_ms(delivery_time - send_time))
 
         d_p_msgs.pop(k)
         d_c_msgs.pop(k)
