@@ -1,2 +1,2 @@
-prometheus_client
-pika
+prometheus_client-0.5.0
+pika-0.13.0
