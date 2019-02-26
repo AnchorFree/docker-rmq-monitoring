@@ -6,9 +6,9 @@ import logging
 import multiprocessing as mp
 import sys
 import time
-import os
 import pika
 from prometheus_client import start_http_server, Histogram, Counter
+from smart_getenv import getenv
 
 
 def init_logger():
@@ -111,18 +111,18 @@ def get_delta_ms(delta):
 def main():     # pylint: disable=R0914
     """Manages consumer, publisher and accounting"""
     config = {
-        "rmq_server": os.getenv('RMQ_SERVER', 'localhost'),
-        "rmq_user": os.getenv('RMQ_USER', ''),
-        "rmq_password": os.getenv('RMQ_PASSWORD', ''),
-        "rmq_vhost": os.getenv('RMQ_VHOST', ''),
-        "rmq_port": int(os.getenv('RMQ_PORT', "5671")),
-        "rmq_ssl": bool(os.getenv('RMQ_SSL', "True")),
-        "exchange_publisher": os.getenv('RMQ_EXCHANGE_PUBLISHER', ''),
-        "exchange_consumer": os.getenv('RMQ_EXCHANGE_CONSUMER', ''),
-        "routing_key": os.getenv('RMQ_ROUTING_KEY', ''),
-        "expire_timeout_ms": int(os.getenv('RMQ_EXPIRE_TIMEOUT', "5000")),
-        "publisher_interval": float(os.getenv('RMQ_PUBLISHER_INTERVAL', "0.5")),
-        "exporter_port": int(os.getenv('EXPORTER_PORT', "9100"))
+        "rmq_server": getenv('RMQ_SERVER', default='localhost', type=str),
+        "rmq_user": getenv('RMQ_USER', default='', type=str),
+        "rmq_password": getenv('RMQ_PASSWORD', default='', type=str),
+        "rmq_vhost": getenv('RMQ_VHOST', default='', type=str),
+        "rmq_port": getenv('RMQ_PORT', default=5671, type=int),
+        "rmq_ssl": getenv('RMQ_SSL', default=True, type=bool),
+        "exchange_publisher": getenv('RMQ_EXCHANGE_PUBLISHER', default='', type=str),
+        "exchange_consumer": getenv('RMQ_EXCHANGE_CONSUMER', default='', type=str),
+        "routing_key": getenv('RMQ_ROUTING_KEY', default='', type=str),
+        "expire_timeout_ms": getenv('RMQ_EXPIRE_TIMEOUT', default=5000, type=int),
+        "publisher_interval": getenv('RMQ_PUBLISHER_INTERVAL', default=0.5, type=float),
+        "exporter_port": getenv('EXPORTER_PORT', default=9100, type=int)
     }
 
     config["multipassport"] = pika.PlainCredentials(config["rmq_user"], config["rmq_password"])
