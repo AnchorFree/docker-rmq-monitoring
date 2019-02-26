@@ -191,7 +191,7 @@ def main():     # pylint: disable=R0914
             d_c_msgs.pop(k)
 
         current_time = datetime.datetime.utcnow()
-        for k in d_p_msgs.items():
+        for k, _ in d_p_msgs.items():
             init_time = datetime.datetime.strptime(k, '%Y%m%d%H%M%S%f')
             if get_delta_ms(current_time - init_time) > config["expire_timeout_ms"] and \
                             k not in d_c_msgs:
