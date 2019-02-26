@@ -12,7 +12,7 @@ from prometheus_client import start_http_server, Histogram, Counter
 
 
 def init_logger():
-    """ Creats logging instance"""
+    """ Creates a logging instance"""
     log = logging.getLogger("rmq-monitoring")
     out_hdlr = logging.StreamHandler(sys.stdout)
     out_hdlr.setFormatter(logging.Formatter('%(asctime)s %(message)s'))
@@ -20,6 +20,7 @@ def init_logger():
     log.addHandler(out_hdlr)
     log.setLevel(logging.INFO)
     return log
+
 
 def publish_rmq_message(config, d_stats, d_p_msgs):
     """Starts a publisher"""
@@ -53,8 +54,7 @@ def publish_rmq_message(config, d_stats, d_p_msgs):
                                    "close_time": close_time}
 
         except Exception as exception:  # pylint: disable=W0703
-            log = init_logger()
-            log.error("Publisher failed: %s", exception)
+            logging.error("Publisher failed: %s", exception)
             d_stats["rmq_monitoring_publish_fails"] += 1
 
         time.sleep(config["publisher_interval"])
@@ -92,8 +92,7 @@ def consume_rmq_message(config, d_stats, d_c_msgs):
             channel.start_consuming()
             channel.close()
         except Exception as exception:  # pylint: disable=W0703
-            log = init_logger()
-            log.error("Consumer failed: %s", exception)
+            logging.error("Consumer failed: %s", exception)
             d_stats["rmq_monitoring_consume_fails"] += 1
 
         time.sleep(1)
@@ -128,7 +127,7 @@ def main():     # pylint: disable=R0914
 
     config["multipassport"] = pika.PlainCredentials(config["rmq_user"], config["rmq_password"])
 
-    log = init_logger()
+    init_logger()
 
     manager = mp.Manager()
 
@@ -195,7 +194,7 @@ def main():     # pylint: disable=R0914
             init_time = datetime.datetime.strptime(k, '%Y%m%d%H%M%S%f')
             if get_delta_ms(current_time - init_time) > config["expire_timeout_ms"] and \
                             k not in d_c_msgs:
-                log.debug('message expired')
+                logging.debug('message expired')
                 rmq_monitoring_expired_msgs.inc(1)
                 d_p_msgs.pop(k)
 
