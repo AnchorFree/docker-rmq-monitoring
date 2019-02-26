@@ -22,7 +22,7 @@ def init_logger():
     return log
 
 
-def publish_rmq_message(config, d_stats, d_p_msgs):
+def publish_rmq_message(config, log, d_stats, d_p_msgs):
     """Starts a publisher"""
     while True:
         try:
@@ -54,7 +54,7 @@ def publish_rmq_message(config, d_stats, d_p_msgs):
                                    "close_time": close_time}
 
         except Exception as exception:  # pylint: disable=W0703
-            logging.error("Publisher failed: %s", exception)
+            log.error("Publisher failed: %s", exception)
             d_stats["rmq_monitoring_publish_fails"] += 1
 
         time.sleep(config["publisher_interval"])
@@ -68,7 +68,7 @@ def consumer_callback(channel, method, body, d_c_msgs):
     d_c_msgs[msg["init_time"]] = {'delivery_time': delivery_time}
 
 
-def consume_rmq_message(config, d_stats, d_c_msgs):
+def consume_rmq_message(config, log, d_stats, d_c_msgs):
     """Starts a consumer"""
     while True:
         try:
@@ -92,7 +92,7 @@ def consume_rmq_message(config, d_stats, d_c_msgs):
             channel.start_consuming()
             channel.close()
         except Exception as exception:  # pylint: disable=W0703
-            logging.error("Consumer failed: %s", exception)
+            log.error("Consumer failed: %s", exception)
             d_stats["rmq_monitoring_consume_fails"] += 1
 
         time.sleep(1)
@@ -127,7 +127,7 @@ def main():     # pylint: disable=R0914
 
     config["multipassport"] = pika.PlainCredentials(config["rmq_user"], config["rmq_password"])
 
-    init_logger()
+    log = init_logger()
 
     manager = mp.Manager()
 
@@ -139,8 +139,8 @@ def main():     # pylint: disable=R0914
     rmq_monitoring_publish_fails = Counter('rmq_monitoring_publish_fails', 'Publisher fails')
     rmq_monitoring_consume_fails = Counter('rmq_monitoring_consume_fails', 'Consumer fails')
 
-    p_consumer = mp.Process(target=consume_rmq_message, args=(config, d_stats, d_c_msgs))
-    p_publisher = mp.Process(target=publish_rmq_message, args=(config, d_stats, d_p_msgs))
+    p_consumer = mp.Process(target=consume_rmq_message, args=(config, log, d_stats, d_c_msgs))
+    p_publisher = mp.Process(target=publish_rmq_message, args=(config, log, d_stats, d_p_msgs))
     p_consumer.daemon = True
     p_publisher.daemon = True
     p_consumer.start()
@@ -194,7 +194,7 @@ def main():     # pylint: disable=R0914
             init_time = datetime.datetime.strptime(k, '%Y%m%d%H%M%S%f')
             if get_delta_ms(current_time - init_time) > config["expire_timeout_ms"] and \
                             k not in d_c_msgs:
-                logging.debug('message expired')
+                log.debug('message expired')
                 rmq_monitoring_expired_msgs.inc(1)
                 d_p_msgs.pop(k)
 
