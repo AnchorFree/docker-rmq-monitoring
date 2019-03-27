@@ -147,7 +147,7 @@ def main():     # pylint: disable=R0914
     p_publisher.start()
 
     rmq_monitoring_event_time_ms = Histogram('rmq_monitoring_event_time_ms', '', ['action'],
-                                             buckets=[le**2 for le in range(3, 15)])
+                                             buckets=[le**2 for le in range(1, 18)])
 
     start_http_server(config["exporter_port"])
 
@@ -185,6 +185,8 @@ def main():     # pylint: disable=R0914
                 .observe(get_delta_ms(close_time - send_time))
             rmq_monitoring_event_time_ms.labels(action="msg_travel")\
                 .observe(get_delta_ms(delivery_time - send_time))
+            rmq_monitoring_event_time_ms.labels(action="total_time")\
+                .observe(get_delta_ms(delivery_time - init_time))
 
             d_p_msgs.pop(k)
             d_c_msgs.pop(k)
