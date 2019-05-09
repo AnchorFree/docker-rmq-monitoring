@@ -148,7 +148,7 @@ def main():     # pylint: disable=R0914
     p_publisher.start()
 
     rmq_monitoring_event_time_ms = Histogram('rmq_monitoring_event_time_ms', '', ['action'],
-                                             buckets=[le**2 for le in range(1, 18)] + additional_bucket_values)
+                                             buckets=[le**2 for le in range(1, 18)] + add_bucket_values)
 
     start_http_server(config["exporter_port"])
 
