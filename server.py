@@ -123,7 +123,7 @@ def main():     # pylint: disable=R0914
         "expire_timeout_ms": getenv('RMQ_EXPIRE_TIMEOUT', default=5000, type=int),
         "publisher_interval": getenv('RMQ_PUBLISHER_INTERVAL', default=0.5, type=float),
         "exporter_port": getenv('EXPORTER_PORT', default=9100, type=int),
-        "additional_bucket_values": getenv('ADD_BUCKET_VALUES', default=[], type=list)
+        "add_bucket_values": getenv('ADD_BUCKET_VALUES', default=[], type=list)
     }
 
     config["multipassport"] = pika.PlainCredentials(config["rmq_user"], config["rmq_password"])
