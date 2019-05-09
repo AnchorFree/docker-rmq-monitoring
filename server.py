@@ -122,7 +122,8 @@ def main():     # pylint: disable=R0914
         "routing_key": getenv('RMQ_ROUTING_KEY', default='', type=str),
         "expire_timeout_ms": getenv('RMQ_EXPIRE_TIMEOUT', default=5000, type=int),
         "publisher_interval": getenv('RMQ_PUBLISHER_INTERVAL', default=0.5, type=float),
-        "exporter_port": getenv('EXPORTER_PORT', default=9100, type=int)
+        "exporter_port": getenv('EXPORTER_PORT', default=9100, type=int),
+        "additional_bucket_values": getenv('ADD_BUCKET_VALUES', default=[], type=list)
     }
 
     config["multipassport"] = pika.PlainCredentials(config["rmq_user"], config["rmq_password"])
@@ -147,7 +148,7 @@ def main():     # pylint: disable=R0914
     p_publisher.start()
 
     rmq_monitoring_event_time_ms = Histogram('rmq_monitoring_event_time_ms', '', ['action'],
-                                             buckets=[le**2 for le in range(1, 18)])
+                                             buckets=[le**2 for le in range(1, 18)] + additional_bucket_values)
 
     start_http_server(config["exporter_port"])
 
