@@ -1,4 +1,4 @@
-FROM python:3.7.2-alpine
+FROM python:3.7.3-alpine
 LABEL maintainer="d.pronkin@anchorfree.com"
 WORKDIR /usr/src/app
 COPY requirements.txt ./
