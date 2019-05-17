@@ -110,6 +110,7 @@ def get_delta_ms(delta):
 
 
 def check_exchanges(config, log, d_exchanges):
+    """Checks exchanges for existence"""
     while True:
         if len(config['exchanges_to_check_list']) < 1:
             log.info("No exchanges to check provided")

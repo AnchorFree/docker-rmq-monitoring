@@ -19,6 +19,8 @@ rmq_monitoring_event_time_ms_count
 
 rmq_monitoring_expired_msgs_created
 rmq_monitoring_expired_msgs_total
+
+rmq_monitoring_exchange_last_seen_alive_timestamp
 ```
 
 ## Docker compose sample
