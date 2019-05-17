@@ -112,7 +112,7 @@ def get_delta_ms(delta):
 def check_exchanges(config, log, d_exchanges):
     """Checks exchanges for existence"""
     while True:
-        if len(config['exchanges_to_check_list']) < 1:
+        if not config['exchanges_to_check_list']:
             log.info("No exchanges to check provided")
             return 0
         if config['rmq_api_ssl']:
@@ -121,10 +121,12 @@ def check_exchanges(config, log, d_exchanges):
             proto = 'http://'
 
         for exchange in config['exchanges_to_check_list']:
-            url = proto + config['rmq_api_server'] + ':' + str(config['rmq_api_port']) + '/api/exchanges/' + exchange
+            url = proto + config['rmq_api_server'] + ':' + str(config['rmq_api_port'])\
+                  + '/api/exchanges/' + exchange
             try:
-                r = requests.get(url, auth=requests.auth.HTTPBasicAuth(config['rmq_user'], config['rmq_password']))
-                if 'name' in r.json() and 'error' not in r.json():
+                req = requests.get(url, auth=requests.auth.HTTPBasicAuth(config['rmq_user'],
+                                                                         config['rmq_password']))
+                if 'name' in req.json() and 'error' not in req.json():
                     d_exchanges[exchange] = datetime.datetime.utcnow().strftime('%s')
 
             except Exception as exception:  # pylint: disable=W0703
@@ -133,7 +135,7 @@ def check_exchanges(config, log, d_exchanges):
         time.sleep(config['exchanges_check_interval'])
 
 
-def main():     # pylint: disable=R0914
+def main():     # pylint: disable=R0914, R0915
     """Manages consumer, publisher and accounting"""
     config = {
         "rmq_server": getenv('RMQ_SERVER', default='localhost', type=str),
@@ -170,7 +172,9 @@ def main():     # pylint: disable=R0914
     rmq_monitoring_expired_msgs = Counter('rmq_monitoring_expired_msgs', 'Expired messages')
     rmq_monitoring_publish_fails = Counter('rmq_monitoring_publish_fails', 'Publisher fails')
     rmq_monitoring_consume_fails = Counter('rmq_monitoring_consume_fails', 'Consumer fails')
-    rmq_monitoring_exchange_last_seen_alive_timestamp = Gauge('rmq_monitoring_exchange_last_alive_timestamp', 'Exchange last seen alive', ['exchange'])
+    rmq_monitoring_exchange_last_seen_alive_timestamp =\
+        Gauge('rmq_monitoring_exchange_last_alive_timestamp',
+              'Exchange last seen alive', ['exchange'])
 
     p_consumer = mp.Process(target=consume_rmq_message, args=(config, log, d_stats, d_c_msgs))
     p_publisher = mp.Process(target=publish_rmq_message, args=(config, log, d_stats, d_p_msgs))
@@ -183,7 +187,8 @@ def main():     # pylint: disable=R0914
     p_exchange_check.start()
 
     rmq_monitoring_event_time_ms = Histogram('rmq_monitoring_event_time_ms', '', ['action'],
-                                             buckets=[le**2 for le in range(1, 18)] + config["add_bucket_values"])
+                                             buckets=[le**2 for le in range(1, 18)]
+                                             + config["add_bucket_values"])
 
     start_http_server(config["exporter_port"])
 
@@ -238,8 +243,8 @@ def main():     # pylint: disable=R0914
                 rmq_monitoring_expired_msgs.inc(1)
                 d_p_msgs.pop(k)
 
-        for k, v in d_exchanges.items():
-            rmq_monitoring_exchange_last_seen_alive_timestamp.labels(exchange=k).set(v)
+        for key, val in d_exchanges.items():
+            rmq_monitoring_exchange_last_seen_alive_timestamp.labels(exchange=key).set(val)
 
         time.sleep(0.1)
 
