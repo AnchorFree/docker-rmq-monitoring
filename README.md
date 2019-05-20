@@ -1,7 +1,8 @@
 # docker-rmq-monitoring
 
 The exporter sends a message to RabbitMQ server with RMQ_PUBLISHER_INTERVAL (sec) interval and measures operations delay. 
-Message is considered expired upon reaching RMQ_EXPIRE_TIMEOUT (ms)
+Message is considered expired upon reaching RMQ_EXPIRE_TIMEOUT (ms). RMQ_USER should have an administrator privileges to
+check exchanges.
 
 ## Avalaible metrics
 
@@ -48,4 +49,10 @@ services:
       - RMQ_PUBLISHER_INTERVAL=0.5
       - EXPORTER_PORT=9101
       - CONSUL_EXPORT_RMQ-MONITORING-EXPORTER=9101
+      - ADD_BUCKET_VALUES=1000,1500,3000
+      - EXCHANGES_TO_CHECK_LIST=%2F/test_exchange,%2F/actions_fanout
+      - EXCHANGES_CHECK_INTERVAL=30
+      - RMQ_API_SERVER=localhost
+      - RMQ_API_PORT=15671
+      - RMQ_API_SSL=True
 ```
