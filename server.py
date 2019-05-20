@@ -7,7 +7,8 @@ import multiprocessing as mp
 import sys
 import time
 import pika
-from prometheus_client import start_http_server, Histogram, Counter
+import requests
+from prometheus_client import start_http_server, Histogram, Counter, Gauge
 from smart_getenv import getenv
 
 
@@ -108,7 +109,33 @@ def get_delta_ms(delta):
     return (delta.days * 86400000) + (delta.seconds * 1000) + (delta.microseconds / 1000)
 
 
-def main():     # pylint: disable=R0914
+def check_exchanges(config, log, d_exchanges):
+    """Checks exchanges for existence"""
+    while True:
+        if not config['exchanges_to_check_list']:
+            log.info("No exchanges to check provided")
+            return 0
+        if config['rmq_api_ssl']:
+            proto = 'https://'
+        else:
+            proto = 'http://'
+
+        for exchange in config['exchanges_to_check_list']:
+            url = proto + config['rmq_api_server'] + ':' + str(config['rmq_api_port'])\
+                  + '/api/exchanges/' + exchange
+            try:
+                req = requests.get(url, auth=requests.auth.HTTPBasicAuth(config['rmq_user'],
+                                                                         config['rmq_password']))
+                if 'name' in req.json() and 'error' not in req.json():
+                    d_exchanges[exchange] = datetime.datetime.utcnow().strftime('%s')
+
+            except Exception as exception:  # pylint: disable=W0703
+                log.error("Error accessing API: %s, url: %s", exception, url)
+
+        time.sleep(config['exchanges_check_interval'])
+
+
+def main():     # pylint: disable=R0914, R0915
     """Manages consumer, publisher and accounting"""
     config = {
         "rmq_server": getenv('RMQ_SERVER', default='localhost', type=str),
@@ -123,7 +150,12 @@ def main():     # pylint: disable=R0914
         "expire_timeout_ms": getenv('RMQ_EXPIRE_TIMEOUT', default=5000, type=int),
         "publisher_interval": getenv('RMQ_PUBLISHER_INTERVAL', default=0.5, type=float),
         "exporter_port": getenv('EXPORTER_PORT', default=9100, type=int),
-        "add_bucket_values": getenv('ADD_BUCKET_VALUES', default=[], type=list)
+        "add_bucket_values": getenv('ADD_BUCKET_VALUES', default=[], type=list),
+        "exchanges_to_check_list": getenv('EXCHANGES_TO_CHECK_LIST', default=[], type=list),
+        "exchanges_check_interval": getenv('EXCHANGES_CHECK_INTERVAL', default=30, type=float),
+        "rmq_api_server": getenv('RMQ_API_SERVER', default='localhost', type=str),
+        "rmq_api_port": getenv('RMQ_API_PORT', default=15671, type=int),
+        "rmq_api_ssl": getenv('RMQ_API_SSL', default=True, type=bool)
     }
 
     config["multipassport"] = pika.PlainCredentials(config["rmq_user"], config["rmq_password"])
@@ -135,20 +167,28 @@ def main():     # pylint: disable=R0914
     d_p_msgs = manager.dict()
     d_c_msgs = manager.dict()
     d_stats = manager.dict({"rmq_monitoring_publish_fails": 0, "rmq_monitoring_consume_fails": 0})
+    d_exchanges = manager.dict()
 
     rmq_monitoring_expired_msgs = Counter('rmq_monitoring_expired_msgs', 'Expired messages')
     rmq_monitoring_publish_fails = Counter('rmq_monitoring_publish_fails', 'Publisher fails')
     rmq_monitoring_consume_fails = Counter('rmq_monitoring_consume_fails', 'Consumer fails')
+    rmq_monitoring_exchange_last_seen_alive_timestamp =\
+        Gauge('rmq_monitoring_exchange_last_alive_timestamp',
+              'Exchange last seen alive', ['exchange'])
 
     p_consumer = mp.Process(target=consume_rmq_message, args=(config, log, d_stats, d_c_msgs))
     p_publisher = mp.Process(target=publish_rmq_message, args=(config, log, d_stats, d_p_msgs))
+    p_exchange_check = mp.Process(target=check_exchanges, args=(config, log, d_exchanges))
     p_consumer.daemon = True
     p_publisher.daemon = True
+    p_exchange_check.daemon = True
     p_consumer.start()
     p_publisher.start()
+    p_exchange_check.start()
 
     rmq_monitoring_event_time_ms = Histogram('rmq_monitoring_event_time_ms', '', ['action'],
-                                             buckets=[le**2 for le in range(1, 18)] + config["add_bucket_values"])
+                                             buckets=[le**2 for le in range(1, 18)]
+                                             + config["add_bucket_values"])
 
     start_http_server(config["exporter_port"])
 
@@ -188,6 +228,8 @@ def main():     # pylint: disable=R0914
                 .observe(get_delta_ms(delivery_time - send_time))
             rmq_monitoring_event_time_ms.labels(action="total_time")\
                 .observe(get_delta_ms(delivery_time - init_time))
+            rmq_monitoring_event_time_ms.labels(action="total_publish_time")\
+                .observe(get_delta_ms(send_time - init_time))
 
             d_p_msgs.pop(k)
             d_c_msgs.pop(k)
@@ -201,10 +243,14 @@ def main():     # pylint: disable=R0914
                 rmq_monitoring_expired_msgs.inc(1)
                 d_p_msgs.pop(k)
 
+        for key, val in d_exchanges.items():
+            rmq_monitoring_exchange_last_seen_alive_timestamp.labels(exchange=key).set(val)
+
         time.sleep(0.1)
 
     p_consumer.join()
     p_publisher.join()
+    p_exchange_check.join()
 
 
 if __name__ == '__main__':
