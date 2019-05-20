@@ -43,6 +43,7 @@ services:
       - RMQ_PASSWORD=password
       - RMQ_VHOST=/
       - RMQ_EXCHANGE_PUBLISHER=actions_fanout
+      - RMQ_EXCHANGE_PUBLISHER_CREATE=False
       - RMQ_EXCHANGE_CONSUMER=test_exchange
       - RMQ_ROUTING_KEY=monitoring-${HOSTNAME}
       - RMQ_EXPIRE_TIMEOUT=5000
@@ -50,8 +51,8 @@ services:
       - EXPORTER_PORT=9101
       - CONSUL_EXPORT_RMQ-MONITORING-EXPORTER=9101
       - ADD_BUCKET_VALUES=1000,1500,3000
-      - EXCHANGES_TO_CHECK_LIST=%2F/test_exchange,%2F/actions_fanout
-      - EXCHANGES_CHECK_INTERVAL=30
+      - RMQ_EXCHANGES_TO_CHECK_LIST=%2F/test_exchange,%2F/actions_fanout
+      - RMQ_EXCHANGES_CHECK_INTERVAL=30
       - RMQ_API_SERVER=localhost
       - RMQ_API_PORT=15671
       - RMQ_API_SSL=True

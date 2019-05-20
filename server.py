@@ -37,6 +37,11 @@ def publish_rmq_message(config, log, d_stats, d_p_msgs):
             init_time = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S%f')
             channel = connection_publisher.channel()
             channel_time = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S%f')
+
+            if config['exchange_publisher_create']:
+                channel.exchange_declare(exchange=config['exchange_publisher'],
+                                         exchange_type='direct', durable=True)
+
             channel.queue_declare(config["routing_key"],
                                   arguments={'x-expires': 10000, 'x-max-length': 1000,
                                              'x-message-ttl': config["expire_timeout_ms"]})
@@ -145,14 +150,15 @@ def main():     # pylint: disable=R0914, R0915
         "rmq_port": getenv('RMQ_PORT', default=5671, type=int),
         "rmq_ssl": getenv('RMQ_SSL', default=True, type=bool),
         "exchange_publisher": getenv('RMQ_EXCHANGE_PUBLISHER', default='', type=str),
+        "exchange_publisher_create": getenv('RMQ_EXCHANGE_PUBLISHER_CREATE', default=False, type=bool),
         "exchange_consumer": getenv('RMQ_EXCHANGE_CONSUMER', default='', type=str),
         "routing_key": getenv('RMQ_ROUTING_KEY', default='', type=str),
         "expire_timeout_ms": getenv('RMQ_EXPIRE_TIMEOUT', default=5000, type=int),
         "publisher_interval": getenv('RMQ_PUBLISHER_INTERVAL', default=0.5, type=float),
         "exporter_port": getenv('EXPORTER_PORT', default=9100, type=int),
         "add_bucket_values": getenv('ADD_BUCKET_VALUES', default=[], type=list),
-        "exchanges_to_check_list": getenv('EXCHANGES_TO_CHECK_LIST', default=[], type=list),
-        "exchanges_check_interval": getenv('EXCHANGES_CHECK_INTERVAL', default=30, type=float),
+        "exchanges_to_check_list": getenv('RMQ_EXCHANGES_TO_CHECK_LIST', default=[], type=list),
+        "exchanges_check_interval": getenv('RMQ_EXCHANGES_CHECK_INTERVAL', default=30, type=float),
         "rmq_api_server": getenv('RMQ_API_SERVER', default='localhost', type=str),
         "rmq_api_port": getenv('RMQ_API_PORT', default=15671, type=int),
         "rmq_api_ssl": getenv('RMQ_API_SSL', default=True, type=bool)
