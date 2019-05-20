@@ -157,8 +157,8 @@ def main():     # pylint: disable=R0914, R0915
         "publisher_interval": getenv('RMQ_PUBLISHER_INTERVAL', default=0.5, type=float),
         "exporter_port": getenv('EXPORTER_PORT', default=9100, type=int),
         "add_bucket_values": getenv('ADD_BUCKET_VALUES', default=[], type=list),
-        "exchanges_to_check_list": getenv('EXCHANGES_TO_CHECK_LIST', default=[], type=list),
-        "exchanges_check_interval": getenv('EXCHANGES_CHECK_INTERVAL', default=30, type=float),
+        "exchanges_to_check_list": getenv('RMQ_EXCHANGES_TO_CHECK_LIST', default=[], type=list),
+        "exchanges_check_interval": getenv('RMQ_EXCHANGES_CHECK_INTERVAL', default=30, type=float),
         "rmq_api_server": getenv('RMQ_API_SERVER', default='localhost', type=str),
         "rmq_api_port": getenv('RMQ_API_PORT', default=15671, type=int),
         "rmq_api_ssl": getenv('RMQ_API_SSL', default=True, type=bool)
