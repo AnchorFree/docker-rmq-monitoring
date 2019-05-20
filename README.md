@@ -43,6 +43,7 @@ services:
       - RMQ_PASSWORD=password
       - RMQ_VHOST=/
       - RMQ_EXCHANGE_PUBLISHER=actions_fanout
+      - EXCHANGE_PUBLISHER_CREATE=False
       - RMQ_EXCHANGE_CONSUMER=test_exchange
       - RMQ_ROUTING_KEY=monitoring-${HOSTNAME}
       - RMQ_EXPIRE_TIMEOUT=5000

@@ -37,6 +37,11 @@ def publish_rmq_message(config, log, d_stats, d_p_msgs):
             init_time = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S%f')
             channel = connection_publisher.channel()
             channel_time = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S%f')
+
+            if config['exchange_publisher_create']:
+                channel.exchange_declare(exchange=config['exchange_publisher'],
+                                         exchange_type='direct', durable=True)
+
             channel.queue_declare(config["routing_key"],
                                   arguments={'x-expires': 10000, 'x-max-length': 1000,
                                              'x-message-ttl': config["expire_timeout_ms"]})
@@ -145,6 +150,7 @@ def main():     # pylint: disable=R0914, R0915
         "rmq_port": getenv('RMQ_PORT', default=5671, type=int),
         "rmq_ssl": getenv('RMQ_SSL', default=True, type=bool),
         "exchange_publisher": getenv('RMQ_EXCHANGE_PUBLISHER', default='', type=str),
+        "exchange_publisher_create": getenv('EXCHANGE_PUBLISHER_CREATE', default=False, type=bool),
         "exchange_consumer": getenv('RMQ_EXCHANGE_CONSUMER', default='', type=str),
         "routing_key": getenv('RMQ_ROUTING_KEY', default='', type=str),
         "expire_timeout_ms": getenv('RMQ_EXPIRE_TIMEOUT', default=5000, type=int),
