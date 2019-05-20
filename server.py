@@ -150,7 +150,7 @@ def main():     # pylint: disable=R0914, R0915
         "rmq_port": getenv('RMQ_PORT', default=5671, type=int),
         "rmq_ssl": getenv('RMQ_SSL', default=True, type=bool),
         "exchange_publisher": getenv('RMQ_EXCHANGE_PUBLISHER', default='', type=str),
-        "exchange_publisher_create": getenv('EXCHANGE_PUBLISHER_CREATE', default=False, type=bool),
+        "exchange_publisher_create": getenv('RMQ_EXCHANGE_PUBLISHER_CREATE', default=False, type=bool),
         "exchange_consumer": getenv('RMQ_EXCHANGE_CONSUMER', default='', type=str),
         "routing_key": getenv('RMQ_ROUTING_KEY', default='', type=str),
         "expire_timeout_ms": getenv('RMQ_EXPIRE_TIMEOUT', default=5000, type=int),
