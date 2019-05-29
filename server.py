@@ -32,7 +32,8 @@ def publish_rmq_message(config, log, d_stats, d_p_msgs):
                 port=config["rmq_port"],
                 virtual_host=config["rmq_vhost"],
                 credentials=config["multipassport"],
-                ssl=config["rmq_ssl"]))
+                ssl=config["rmq_ssl"],
+                blocked_connection_timeout=120))
 
             init_time = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S%f')
             channel = connection_publisher.channel()
@@ -83,7 +84,9 @@ def consume_rmq_message(config, log, d_stats, d_c_msgs):
                 port=config["rmq_port"],
                 virtual_host=config["rmq_vhost"],
                 credentials=config["multipassport"],
-                ssl=config["rmq_ssl"]))
+                ssl=config["rmq_ssl"],
+                blocked_connection_timeout=120))
+
             channel = connection_consumer.channel()
             channel.queue_declare(config["routing_key"],
                                   arguments={'x-expires': 10000, 'x-max-length': 1000,
