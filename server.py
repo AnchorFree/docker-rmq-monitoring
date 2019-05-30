@@ -140,6 +140,9 @@ def check_exchanges(config, log, d_exchanges):
             except Exception as exception:  # pylint: disable=W0703
                 log.error("Error accessing API: %s, url: %s", exception, url)
 
+            if exchange not in d_exchanges:
+                d_exchanges[exchange] = 0
+
         time.sleep(config['exchanges_check_interval'])
 
 
